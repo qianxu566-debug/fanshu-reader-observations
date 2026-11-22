@@ -1,0 +1,31 @@
+name: 每日在读实测
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '12 */3 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: daily-readers
+  cancel-in-progress: false
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 175
+    steps:
+      - uses: actions/checkout@v4
+      - name: 采集并分段保存
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for n in {1..16}; do
+            python3 collect.py
+            git add days
+            if git diff --cached --quiet; then break; fi
+            git commit -qm '保存本日在读实测进度'
+            git push
+            if python3 -c 'import datetime as d,json,gzip; day=d.datetime.now(d.timezone(d.timedelta(hours=8))).date(); s=json.load(gzip.open(f"days/{day}.json.gz")); exit(0 if s.get("refused") or len(s["rows"])==len(s["targets"]) else 1)'; then break; fi
+            sleep 12
+          done
