@@ -6,7 +6,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from card_fields import card_fields, chapter_words, cn_day
+from card_fields import book_tags
 from tracking import discover, merge, coverage
 
 CN = dt.timezone(dt.timedelta(hours=8))
@@ -62,7 +62,7 @@ def run():
                 raise ValueError("source "+str(data.get("code"))+" "+str(data.get("message",""))[:80]+" or missing readCount")
             if now().date().isoformat()!=day:break
             stamp=int(now().timestamp())
-            state["rows"][i]=[stamp,int(n),*card_fields(book,stamp)]
+            state["rows"][i]=[stamp,int(n),book_tags(book)]
             state["errors"].pop(i,None)
             failures=0
         except Exception as e:
@@ -79,28 +79,8 @@ def run():
             if failures>=5:break
         if (len(state["rows"])+len(state["errors"]))%50==0:save()
         time.sleep(.4)
-def enrich_words():
-    if state.get("refused"):return
-    attempted=state.setdefault("wordAttempts",{})
-    end=time.monotonic()+60
-    for i,row in state["rows"].items():
-        if time.monotonic()>=end or now().date().isoformat()!=day:break
-        if len(row)<5 or row[4] is not None or not row[3] or cn_day(row[3])!=day or attempted.get(i):continue
-        try:
-            words=chapter_words(i,day,get,end)
-            if now().date().isoformat()!=day:break
-            row[4]=words
-            attempted[i]=True
-        except TimeoutError:
-            break
-        except Exception as e:
-            if getattr(e,"code",0) in (401,403,429):
-                state["refused"]=str(e)
-                break
-            attempted[i]=True
 try:
     run()
-    enrich_words()
 finally:
     state["coverage"]=coverage(state,yesterday)
     save()
