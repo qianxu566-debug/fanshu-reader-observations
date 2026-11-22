@@ -25,6 +25,7 @@ jobs:
             git add days
             if git diff --cached --quiet; then break; fi
             git commit -qm '保存本日在读实测进度'
+            git pull --rebase origin main
             git push
             if python3 -c 'import datetime as d,json,gzip; day=d.datetime.now(d.timezone(d.timedelta(hours=8))).date(); s=json.load(gzip.open(f"days/{day}.json.gz")); exit(0 if s.get("refused") or len(s["rows"])==len(s["targets"]) else 1)'; then break; fi
             sleep 12
